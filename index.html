@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>黄河流域文物保护闯关游戏</title>
+<style>
+*{box-sizing:border-box;font-family:"Microsoft Yahei",sans-serif;margin:0;padding:0}
+body{background:#f0f7ff;padding:20px}
+h1{text-align:center;color:#2c5c97;margin-bottom:10px;font-size:22px}
+.info{text-align:center;margin-bottom:16px;font-size:16px}
+.timer{font-size:22px;font-weight:bold;text-align:center;color:#c82423;margin-bottom:20px}
+.wrap{max-width:1200px;margin:0 auto}
+.box-row{display:flex;gap:20px;justify-content:center;margin-bottom:30px;flex-wrap:wrap}
+.drop-box{width:22%;min-height:220px;border:3px dashed #5588cc;border-radius:12px;padding:12px;background:#fff}
+.drop-box h3{text-align:center;color:#2c5c97;margin-bottom:10px;font-size:16px}
+.item-container{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;min-height:70px}
+/* 待拖拽卡片：显示图标 */
+.source-area .drag-item{width:130px;padding:10px;background:#e6f0ff;border-radius:8px;text-align:center;cursor:grab;border:2px solid #77a6e0;user-select:none}
+.source-area .drag-item:active{cursor:grabbing}
+.source-area .drag-item img{width:55px;height:55px;object-fit:contain;display:block;margin:0 auto 4px auto}
+/* 拖入分类框后的卡片：不显示图标 */
+.drop-box .drag-item{width:130px;padding:10px;background:#e6f0ff;border-radius:8px;text-align:center;border:2px solid #77a6e0;user-select:none}
+.drop-box .drag-item img{display:none;}
+
+.source-area{background:#eef6ff;border-radius:12px;padding:20px;margin-top:20px}
+.source-area h3{text-align:center;margin-bottom:16px;color:#2c5c97}
+.correct-tip{color:#008833;font-weight:bold;margin-top:6px;font-size:13px}
+.wrong-tip{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);background:#ff4444;color:#fff;padding:14px 24px;border-radius:10px;display:none;z-index:100;font-size:16px}
+.ctrl{text-align:center;margin:14px 0}
+#nextBtn{padding:10px 24px;border:none;background:#2c78da;color:#fff;border-radius:8px;font-size:16px;cursor:pointer}
+</style>
+</head>
+<body>
+<h1 id="gameTitle">黄河流域文物保护环境因子重要性评价分类闯关</h1>
+<div class="info" id="gameInfo">规则：拖动环境因子到对应分类框｜限时90秒，答对1题得20分，答对5题及以上封顶100分</div>
+<div class="timer">剩余时间：<span id="time">90</span> 秒｜得分：<span id="score">0</span> / 100</div>
+<div class="wrap">
+    <div class="box-row" id="boxRow">
+        <!-- 第一关两个框 -->
+        <div class="drop-box" data-target="main">
+            <h3>✅主要驱动因子</h3>
+            <div class="item-container"></div>
+        </div>
+        <div class="drop-box" data-target="sub">
+            <h3>📌次要驱动因子</h3>
+            <div class="item-container"></div>
+        </div>
+    </div>
+    <div class="source-area">
+        <h3>待拖拽环境因子</h3>
+        <div class="item-container" id="source"></div>
+    </div>
+</div>
+<div class="ctrl"><button id="nextBtn">继续闯关</button></div>
+<div class="wrong-tip" id="wrongTip">答错了哦</div>
+
+<script>
+document.addEventListener('dragover', e=>{e.preventDefault();e.stopPropagation()})
+document.addEventListener('drop', e=>{e.preventDefault();e.stopPropagation()})
+
+let level = 1
+let score = 0
+let timeLeft = 90
+let timerId = null
+let answeredList = []
+const timeSpan = document.getElementById('time')
+const scoreSpan = document.getElementById('score')
+const wrongTip = document.getElementById('wrongTip')
+const sourceEl = document.getElementById('source')
+const boxRow = document.getElementById('boxRow')
+const gameTitle = document.getElementById('gameTitle')
+const gameInfo = document.getElementById('gameInfo')
+const nextBtn = document.getElementById('nextBtn')
+
+//关卡配置
+const levelConfig = {
+    1:{
+        title:"黄河流域文物保护环境因子重要性评价分类闯关",
+        info:"规则：拖动环境因子到对应分类框｜限时90秒，答对1题得20分，答对5题及以上封顶100分",
+        boxes:[
+            {name:"✅主要驱动因子",target:"main"},
+            {name:"📌次要驱动因子",target:"sub"}
+        ],
+        items:[
+            {name:"降水",type:"main",img:"https://img.icons8.com/fluency/96/000000/rain.png"},
+            {name:"海拔",type:"main",img:"https://img.icons8.com/fluency/96/000000/mountain.png"},
+            {name:"土壤类型",type:"main",img:"https://img.icons8.com/fluency/96/000000/soil.png"},
+            {name:"≥10℃积温",type:"sub",img:"https://img.icons8.com/fluency/96/000000/sun.png"},
+            {name:"河网密度",type:"sub",img:"https://img.icons8.com/fluency/96/000000/water.png"},
+            {name:"植被类型",type:"sub",img:"https://img.icons8.com/fluency/96/000000/grass.png"}
+        ],
+        perScore:20,
+        maxShowScore:100,
+        correctTip:"回答正确，{name}是{targetName}，你真棒！",
+        wrongTip:"很可惜回答错误，继续加油哦！"
+    },
+    2:{
+        title:"黄河流域史前至历史不同时期文物保护的最大影响因子闯关",
+        info:"题目：黄河流域史前至历史不同时期文物保护的最大影响因子是什么？限时90秒，答对1题得25分，满分100分",
+        boxes:[
+            {name:"史前至先秦",target:"preqin"},
+            {name:"秦汉至隋唐",target:"qinhan"},
+            {name:"宋元明清",target:"songyuan"},
+            {name:"近代以来",target:"modern"}
+        ],
+        answerMap:{
+            "降水":["preqin","qinhan"],
+            "海拔":["songyuan"],
+            "≥10℃积温":["modern"]
+        },
+        items:[
+            {name:"海拔",img:"https://img.icons8.com/fluency/96/000000/mountain.png"},
+            {name:"降水",img:"https://img.icons8.com/fluency/96/000000/rain.png"},
+            {name:"≥10℃积温",img:"https://img.icons8.com/fluency/96/000000/sun.png"},
+            {name:"植被类型",img:"https://img.icons8.com/fluency/96/000000/grass.png"},
+            {name:"河网密度",img:"https://img.icons8.com/fluency/96/000000/water.png"}
+        ],
+        perScore:25,
+        maxShowScore:100,
+        correctTip:"答对了、真棒",
+        wrongTip:"答错了哦"
+    }
+}
+
+function getShowScore(rawScore,max){
+    return rawScore >= max ? max : rawScore
+}
+function showWrong(msg){
+    wrongTip.innerText = msg
+    wrongTip.style.display='block'
+    setTimeout(()=>wrongTip.style.display='none',1000)
+}
+function startTimer(){
+    clearInterval(timerId)
+    timeLeft = 90
+    timeSpan.textContent = timeLeft
+    timerId = setInterval(()=>{
+        timeLeft--
+        timeSpan.textContent = timeLeft
+        if(timeLeft <= 0){
+            clearInterval(timerId)
+            alert('时间到！最终得分：'+ getShowScore(score,levelConfig[level].maxShowScore) +' / '+levelConfig[level].maxShowScore)
+        }
+    },1000)
+}
+function bindDrag(){
+    document.querySelectorAll('.drag-item').forEach(item=>{
+        item.draggable = true
+        item.ondragstart = function(e){
+            e.dataTransfer.setData('text', JSON.stringify({
+                name:this.dataset.name,
+                img:this.dataset.img
+            }))
+        }
+    })
+    // 绑定到外层drop-box
+    document.querySelectorAll('.drop-box').forEach(box=>{
+        box.ondragover = e=>{e.preventDefault()}
+        box.ondrop = function(e){
+            e.preventDefault()
+            const data = JSON.parse(e.dataTransfer.getData('text'))
+            const targetType = this.dataset.target
+            const cfg = levelConfig[level]
+            const container = this.querySelector('.item-container')
+
+            // 只在第二关限制：一个框只能放1个
+            if(level===2 && container.querySelector('.drag-item')) return;
+
+            let isRight = false
+            if(cfg.answerMap && cfg.answerMap[data.name]){
+                isRight = cfg.answerMap[data.name].includes(targetType)
+            }else{
+                //第一关逻辑
+                const matchItem = cfg.items.find(i=>i.name === data.name)
+                if(matchItem && matchItem.type === targetType) isRight=true
+            }
+
+            if(isRight){
+                answeredList.push(targetType + "|" + data.name)
+                score += cfg.perScore
+                scoreSpan.textContent = getShowScore(score,cfg.maxShowScore)
+                const newCard = document.createElement('div')
+                newCard.className = 'drag-item'
+                if(level === 1){
+                    const boxInfo = cfg.boxes.find(b=>b.target === targetType)
+                    newCard.innerHTML = `<div>${data.name}</div><div class="correct-tip">回答正确，${data.name}是${boxInfo.name}，你真棒！</div>`
+                }else{
+                    newCard.innerHTML = `<div>${data.name}</div><div class="correct-tip">答对了、真棒</div>`
+                }
+                newCard.draggable = false
+                container.appendChild(newCard)
+            }else{
+                showWrong(cfg.wrongTip)
+            }
+        }
+    })
+}
+function loadLevel(lv){
+    clearInterval(timerId)
+    score = 0
+    answeredList = []
+    const cfg = levelConfig[lv]
+    gameTitle.innerText = cfg.title
+    gameInfo.innerText = cfg.info
+    scoreSpan.textContent = 0
+    boxRow.innerHTML = ''
+    cfg.boxes.forEach(box=>{
+        const div = document.createElement('div')
+        div.className = 'drop-box'
+        div.dataset.target = box.target
+        div.innerHTML = `<h3>${box.name}</h3><div class="item-container"></div>`
+        boxRow.appendChild(div)
+    })
+    sourceEl.innerHTML = ''
+    cfg.items.forEach(it=>{
+        const div = document.createElement('div')
+        div.className = 'drag-item'
+        div.dataset.name = it.name
+        div.dataset.img = it.img
+        div.innerHTML = `<img src="${it.img}"><div>${it.name}</div>`
+        sourceEl.appendChild(div)
+    })
+    bindDrag()
+    startTimer()
+}
+nextBtn.onclick = function(){
+    const cfg = levelConfig[level]
+    const nowShowScore = getShowScore(score,cfg.maxShowScore)
+    if(nowShowScore >= 100){
+        if(level < 2){
+            level = 2
+            loadLevel(level)
+        }else{
+            alert("恭喜你通关全部关卡！")
+        }
+    }else{
+        alert("需要拿到100分才可以进入下一关，请继续努力！")
+    }
+}
+loadLevel(level)
+</script>
+</body>
+</html>
